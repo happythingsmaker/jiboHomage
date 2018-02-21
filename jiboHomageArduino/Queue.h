@@ -13,9 +13,11 @@ private:
 
 public:
 	Queue(uint8_t pSize) {
+
 		data = (T*) malloc(pSize * sizeof(T));
 		mSize = pSize;
 	}
+
 	void push(T input) {
 
 		if (iterator == mSize) {
@@ -27,55 +29,46 @@ public:
 	}
 
 	int32_t sum() {
+
 		tempSum = 0;
+
 		for (uint8_t i = 0; i < mSize; i++) {
 			tempSum += data[i];
 		}
+
 		return tempSum;
 	}
 
 	T average() {
+
 		return (int32_t)(sum() / mSize);
 	}
 
 	T stddiv() {
+
 		uint32_t tempSum = average();
 		uint32_t tempDiffSumPower = 0;
+
 		for (uint8_t i = 0; i < mSize; i++) {
 			tempDiffSumPower += ((tempSum - data[i]) * (tempSum - data[i]));
 		}
+
 		T tempStddiv = sqrt(tempDiffSumPower / mSize);
 
 		maxStddivValue = max(maxStddivValue, tempStddiv);
 		minStddivValue = min(minStddivValue, tempStddiv);
-
 		mStddiv = tempStddiv;
 		return tempStddiv;
+
 	}
 
 	T getStddiv() {
+
 		return mStddiv;
 	}
 
-	T getMaxStddiv() {
-		return maxStddivValue;
-	}
-
-	T getMinStddiv() {
-		return maxStddivValue;
-	}
-
-	void decreaseMaxMinStddiv() {
-		if (maxStddivValue > 0) {
-			maxStddivValue *= 0.9;
-		}
-		if (minStddivValue < 220) {
-			minStddivValue *= 1.1;
-		}
-
-	}
-
 	T getMin() {
+
 		tempMinMax = 9999;
 		for (uint32_t i = 0; i < mSize; i++) {
 			tempMinMax = min(tempMinMax, data[i]);
@@ -84,13 +77,11 @@ public:
 	}
 
 	T getMax() {
+
 		tempMinMax = 0;
 		for (uint8_t i = 0; i < mSize; i++) {
-			//Serial.print(data[i * sizeof(T)]);
-			//Serial.print(" ");
 			tempMinMax = max(tempMinMax, data[i]);
 		}
-		//Serial.println();
 		return tempMinMax;
 	}
 
@@ -107,5 +98,4 @@ public:
 		}
 		Serial.println();
 	}
-
 };

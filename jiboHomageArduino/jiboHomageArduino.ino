@@ -1,10 +1,10 @@
 // http://HappyThingsMaker.com
+// I love robot "Jibo". This project is for showing my respect for "Jibo"
 
 #include <Adafruit_PWMServoDriver.h>
 #include <Adafruit_NeoPixel.h>
 
 #include "SmoothServoMotorDriver.h"
-
 #include "Queue.h"
 
 #define DEBUG	0
@@ -120,105 +120,78 @@ uint8_t testVariable = 0;
 
 void loop() {
 
-	pinMode(8, INPUT_PULLUP);
-	while (1) {
-		if (digitalRead(8) == LOW) {
-			if (testVariable) {
-				testVariable = false;
+	currentMillis = millis();
 
-			} else {
-				testVariable = true;
+	// motor control routine ===================================================================
+	if (currentMillis - lastMotorUpdateMillis >= UNIT_MS_NEOPIXEL) {
+		lastMotorUpdateMillis = currentMillis;
+		servo[HEAD].update();
+		servo[BODY].update();
+		servo[FOOT].update();
+	}
 
-			}
-			delay(100);
+	// neopixel control routine ================================================================
+	if (currentMillis - lastNeopixelMillis >= UNIT_NEOPIXEL_MS) {
+		lastNeopixelMillis = currentMillis;
+
+		for (uint8_t i = 0; i < strip.numPixels(); i++) {
+			strip.setPixelColor(i, Wheel(((i * 256 / strip.numPixels()) + neopixelCount) & 255));
 		}
 
-		currentMillis = millis();
+		maxAverageTemp = max(maxAverageTemp, neopixelQueue.average());
+		maxAverageTemp = max(100, min(maxAverageTemp, 512));
 
-		// motor control routine ===================================================================
-		if (currentMillis - lastMotorUpdateMillis >= UNIT_MS_NEOPIXEL) {
-			lastMotorUpdateMillis = currentMillis;
-			servo[HEAD].update();
-			servo[BODY].update();
-			servo[FOOT].update();
+		//spread from head to tail
+		tempVolumToNeopixel = map(maxAverageTemp, 100, 512, 1, 24);
+
+		for (uint8_t i = 0; i < NUM_PIXELS - tempVolumToNeopixel; i++) {
+			strip.setPixelColor(i, strip.Color(2, 2, 2));
 		}
 
-		// neopixel control routine ================================================================
-		if (currentMillis - lastNeopixelMillis >= UNIT_NEOPIXEL_MS) {
-			lastNeopixelMillis = currentMillis;
+		// 10 ms * 100 time == every 1 second
+		if (ledRotationCount++ > 100) {
+			ledRotationCount = 0;
+			ledRotationStep++;
 
-			for (uint8_t i = 0; i < strip.numPixels(); i++) {
-				strip.setPixelColor(i,
-						Wheel(((i * 256 / strip.numPixels()) + neopixelCount) & 255));
-			}
+		}
 
-			maxAverageTemp = max(maxAverageTemp, neopixelQueue.average());
-			maxAverageTemp = max(100, min(maxAverageTemp, 512));
+		if (ledRotationStep >= 24) {
+			ledRotationStep = 0;
+		}
 
-			/*
-			 //spead from centre
-			 tempVolumToNeopixel = map(maxAverageTemp, 100, 512, 0, 12);
-			 for (uint8_t i = NUM_PIXELS / 2; i > tempVolumToNeopixel; i--) {
-			 strip.setPixelColor(i, strip.Color(2, 2, 2));
-			 strip.setPixelColor(24 - i, strip.Color(2, 2, 2));
+		//backup
+		uint32_t tempColorSet[24] = { 0 };
+		for (uint8_t i = 0; i < NUM_PIXELS; i++) {
+			tempColorSet[i] = strip.getPixelColor(i);
+		}
 
-			 }
-			 */
-			//spread from head to tail
-			tempVolumToNeopixel = map(maxAverageTemp, 100, 512, 1, 24);
+		// setting again
+		for (uint8_t i = 0; i < NUM_PIXELS; i++) {
+			strip.setPixelColor(i, tempColorSet[(i + NUM_PIXELS - ledRotationStep) % NUM_PIXELS]);
+		}
 
-			for (uint8_t i = 0; i < NUM_PIXELS - tempVolumToNeopixel; i++) {
-				strip.setPixelColor(i, strip.Color(2, 2, 2));
-			}
-
-			// 10 ms * 100 time == every 1 second
-			if (ledRotationCount++ > 100) {
-				ledRotationCount = 0;
-				ledRotationStep++;
-
-			}
-
-			if (ledRotationStep >= 24) {
-				ledRotationStep = 0;
-			}
-
-			//backup
-			uint32_t tempColorSet[24] = { 0 };
-			for (uint8_t i = 0; i < NUM_PIXELS; i++) {
-				tempColorSet[i] = strip.getPixelColor(i);
-			}
-
-			// setting again
-			for (uint8_t i = 0; i < NUM_PIXELS; i++) {
-				//for (uint8_t i = NUM_PIXELS - 1; i >= 0; i--) {
-				strip.setPixelColor(i,
-						tempColorSet[(i + NUM_PIXELS - ledRotationStep) % NUM_PIXELS]);
-			}
-
-			if (maxAverageTemp < 120) {
-				// Check slince time for 10 ms * 500 times (5 second)
-				// if slience lasts 5 second, robot turns off the leds
-				if (quiteCount++ > 500) {
-					quiteCount = 501;
-					for (uint8_t i = 0; i < strip.numPixels(); i++) {
-						strip.setPixelColor(i, 0);
-					}
+		if (maxAverageTemp < 120) {
+			// Check slince time for 10 ms * 500 times (5 second)
+			// if slience lasts 5 second, robot turns off the leds
+			if (quiteCount++ > 500) {
+				quiteCount = 501;
+				for (uint8_t i = 0; i < strip.numPixels(); i++) {
+					strip.setPixelColor(i, 0);
 				}
-			} else {
-				quiteCount = 0;
-
 			}
+		} else {
+			quiteCount = 0;
 
-			strip.show();
+		}
 
-			if (neopixelCount++ >= 256 * 5) {
-				neopixelCount = 0;
+		strip.show();
 
-			}
-			if (maxAverageTemp > 110) {
-				maxAverageTemp -= 5;
-			}
+		if (neopixelCount++ >= 256 * 5) {
+			neopixelCount = 0;
 
+		}
+		if (maxAverageTemp > 110) {
+			maxAverageTemp -= 5;
 		}
 
 		// sound spectrum analizing routine ========================================================
@@ -238,116 +211,38 @@ void loop() {
 					tempDuration = 300;
 				}
 
-				if (testVariable) {
-					if (flag) {
-						flag = false;
-						if (random(3)) {
-							servo[HEAD].revSudden(90 + random(30, 60), tempDuration);
-						}
-
-						if (random(3)) {
-							servo[BODY].revSudden(90 - random(30, 60), tempDuration);
-						}
-
-						if (random(3)) {
-							servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
-						}
-
-					} else {
-						if (random(3)) {
-							servo[HEAD].revSudden(90 - random(30, 60), tempDuration);
-						}
-
-						if (random(3)) {
-							servo[BODY].revSudden(90 + random(30, 60), tempDuration);
-						}
-						if (random(3)) {
-							servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
-						}
-						flag = true;
+				if (flag) {
+					flag = false;
+					if (random(3)) {
+						servo[HEAD].revSudden(90 + random(30, 60), tempDuration);
 					}
+
+					if (random(3)) {
+						servo[BODY].revSudden(90 - random(30, 60), tempDuration);
+					}
+
+					if (random(3)) {
+						servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
+					}
+
 				} else {
-					if (flag) {
-						flag = false;
-#define TEMPDGREE 60
-						//servo[HEAD].sudden(90 - TEMPDGREE, tempDuration);
-						servo[BODY].sudden(90 + TEMPDGREE, tempDuration);
-						servo[FOOT].sudden(90 - TEMPDGREE, tempDuration);
-					} else {
-						//servo[HEAD].sudden(90 - TEMPDGREE, tempDuration);
-						servo[BODY].sudden(90 - TEMPDGREE, tempDuration);
-						servo[FOOT].sudden(90 + TEMPDGREE, tempDuration);
-						flag = true;
+					if (random(3)) {
+						servo[HEAD].revSudden(90 - random(30, 60), tempDuration);
 					}
 
-
+					if (random(3)) {
+						servo[BODY].revSudden(90 + random(30, 60), tempDuration);
+					}
+					if (random(3)) {
+						servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
+					}
+					flag = true;
 				}
-
-				//servo[HEAD].nod(90, tempAngle, tempTime);
-				//servo[BODY].nod(90, -tempAngle, tempTime);
-//				servo[HEAD].sudden(90 + random(-40, 40), min(1000, bpmQueue.average() * 3 / 4));
-//				servo[BODY].sudden(90 + random(-40, 40), min(1000, bpmQueue.average() * 3 / 4));
-//				servo[FOOT].sudden(90 + random(-10, 10), min(1000, bpmQueue.average() * 3 / 4));
-
-				lastBeatMillis = currentMillis;
-				// in order to fire for motors EARLY
-				lastMotorUpdateMillis = currentMillis + 100;
-
 			}
+			lastBeatMillis = currentMillis;
+			// in order to fire for motors EARLY
+			lastMotorUpdateMillis = currentMillis + 100;
 		}
-
-		if (Serial.available()) {
-			uint8_t temp = Serial.read();
-			if (temp == 'a') {
-				servo[BODY].sudden(120, 500);
-
-			} else if (temp == 'b') {
-				servo[BODY].sudden(60, 300);
-
-			} else if (temp == 'c') {
-				servo[BODY].sudden(30, 1000);
-
-			} else if (temp == '1') {
-				servo[HEAD].run(90, 500);
-				servo[BODY].run(0, 500);
-
-			} else if (temp == '2') {
-				servo[HEAD].run(0, 500);
-				servo[BODY].run(90, 500);
-
-			} else if (temp == '3') {
-				servo[HEAD].run(90, 500);
-				servo[BODY].run(180, 500);
-
-			} else if (temp == '4') {
-				servo[HEAD].run(180, 500);
-				servo[BODY].run(90, 500);
-
-			} else if (temp == 'f') {
-
-				servo[HEAD].run(90, 1000);
-				servo[BODY].run(90, 1000);
-				servo[FOOT].run(90, 1000);
-
-			} else if (temp == 'n') {
-
-				servo[HEAD].nod(90, 30, 300);
-
-			} else if (temp == 'p') {
-
-				resultQueue.push(tempTest += 2);
-				resultQueue.printQueue();
-
-			} else if (temp == 'm') {
-
-				if (testVariable++ >= 7) {
-					testVariable = 0;
-				}
-
-			}
-
-		}
-
 	}
 }
 
@@ -358,14 +253,14 @@ bool Read_Frequencies(uint8_t mode) {
 	int16_t temp = 0;
 	int16_t tempThreshold = 0;
 
-	//Read frequencies for each band
+//Read frequencies for each band
 	frequenciesOne[freq_amp++] = analogRead(DC_One);
 
 	if (freq_amp >= 7) {
 		freq_amp = 0;
 	}
 
-	// changing frequency channel by controlling STROBE
+// changing frequency channel by controlling STROBE
 	digitalWrite(STROBE, HIGH);
 	digitalWrite(STROBE, LOW);
 
@@ -380,33 +275,16 @@ bool Read_Frequencies(uint8_t mode) {
 		resultQueue.push(temp);
 		tempThreshold = max(25, resultQueue.getMax() / 2);
 
-#if DEBUG
-		Serial.print(temp);
-		Serial.print(" ");
-		Serial.println(tempThreshold);
-#endif
-
 	}
 
-//	Serial.print(tempThreshold);
-//	Serial.print(" ");
-//	Serial.println(temp);
-//	if (temp > 10) {
 	if (temp > tempThreshold) {
 		if (currentMillis - lastBoomTime > 300) {
 			lastBoomTime = currentMillis;
-			//Serial.println(temp);
 			return true;
 
-		} else {
-			//Serial.println(0);
 		}
-
-	} else {
-		//Serial.println(0);
 	}
 	return false;
-
 }
 
 void setupSpectrumShield() {
@@ -430,9 +308,6 @@ void setupSpectrumShield() {
 	digitalWrite(RESET, LOW);
 }
 
-bool isAnyMotorRunning() {
-	return servo[HEAD].isRunning() || servo[BODY].isRunning() || servo[FOOT].isRunning();
-}
 
 void rainbowCycle(uint8_t wait) {
 	uint16_t i, j;
@@ -456,18 +331,4 @@ uint32_t Wheel(byte WheelPos) {
 		WheelPos -= 170;
 		return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
 	}
-}
-
-void groove() {
-
-	if (flag) {
-		servo[HEAD].run(80 + (0, 30), min(1000, bpmQueue.average() / 2));
-		servo[BODY].run(100 + random(0, 30), min(1000, bpmQueue.average() / 2));
-		flag = false;
-	} else {
-		servo[HEAD].run(100 + random(0, 30), min(1000, bpmQueue.average() / 2));
-		servo[BODY].run(80 + random(0, 30), min(1000, bpmQueue.average() / 2));
-		flag = true;
-	}
-
 }
