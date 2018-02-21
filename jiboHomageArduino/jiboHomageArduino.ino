@@ -8,6 +8,7 @@
 #include "Queue.h"
 
 #define DEBUG	0
+#define DEBUG_PRINT(X)	Serial.println((X))
 
 #define NEO_PIN 2
 #define NUM_PIXELS 24
@@ -81,6 +82,11 @@ void setup() {
 #if DEBUG
 	Serial.println("Initialization complete");
 #endif
+	DEBUG_PRINT("1");
+
+	servo[HEAD].run(90, 500);
+	servo[BODY].run(90, 500);
+	servo[FOOT].run(90, 500);
 
 }
 
@@ -193,57 +199,59 @@ void loop() {
 		if (maxAverageTemp > 110) {
 			maxAverageTemp -= 5;
 		}
+	}
 
-		// sound spectrum analizing routine ========================================================
-		// Spectrum Analizing Period : 2 ms per channel
-		if (currentMillis - lastSpectrumCheckMillis >= 2) {
+	// sound spectrum analizing routine ========================================================
+	// Spectrum Analizing Period : 2 ms per channel
+	if (currentMillis - lastSpectrumCheckMillis >= 2) {
 
-			lastSpectrumCheckMillis = currentMillis;
-			bpmQueue.push(currentMillis - lastBeatMillis);
+		lastSpectrumCheckMillis = currentMillis;
+		bpmQueue.push(currentMillis - lastBeatMillis);
 
-			// FIRED!
-			if (Read_Frequencies(NORMAL)) {
-				ledRotationStep += 4;
+		// FIRED!
+		if (Read_Frequencies(NORMAL)) {
+			ledRotationStep += 4;
 
-				int16_t tempAngle = random(30, 45);
-				int16_t tempDuration = min(1500, bpmQueue.average());
-				if (tempDuration == 1500) {
-					tempDuration = 300;
+			int16_t tempAngle = random(30, 45);
+			int16_t tempDuration = min(1500, bpmQueue.average());
+			if (tempDuration == 1500) {
+				tempDuration = 300;
+			}
+
+			if (flag) {
+				flag = false;
+				if (random(3)) {
+					servo[HEAD].revSudden(90 + random(30, 60), tempDuration);
 				}
 
-				if (flag) {
-					flag = false;
-					if (random(3)) {
-						servo[HEAD].revSudden(90 + random(30, 60), tempDuration);
-					}
-
-					if (random(3)) {
-						servo[BODY].revSudden(90 - random(30, 60), tempDuration);
-					}
-
-					if (random(3)) {
-						servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
-					}
-
-				} else {
-					if (random(3)) {
-						servo[HEAD].revSudden(90 - random(30, 60), tempDuration);
-					}
-
-					if (random(3)) {
-						servo[BODY].revSudden(90 + random(30, 60), tempDuration);
-					}
-					if (random(3)) {
-						servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
-					}
-					flag = true;
+				if (random(3)) {
+					servo[BODY].revSudden(90 - random(30, 60), tempDuration);
 				}
+
+				if (random(3)) {
+					servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
+				}
+
+			} else {
+				if (random(3)) {
+					servo[HEAD].revSudden(90 - random(30, 60), tempDuration);
+				}
+
+				if (random(3)) {
+					servo[BODY].revSudden(90 + random(30, 60), tempDuration);
+				}
+				if (random(3)) {
+					servo[FOOT].revSudden(90 + random(-90, 90), tempDuration);
+				}
+				flag = true;
 			}
 			lastBeatMillis = currentMillis;
 			// in order to fire for motors EARLY
 			lastMotorUpdateMillis = currentMillis + 100;
 		}
+
 	}
+
 }
 
 /*******************Pull frquencies from Spectrum Shield********************/
@@ -269,9 +277,9 @@ bool Read_Frequencies(uint8_t mode) {
 		longQueue.push(shortQueue.average());
 		neopixelQueue.push(frequenciesOne[0] + frequenciesOne[2]);
 
-		// true graph data
+// true graph data
 		temp = shortQueue.average() - longQueue.getMin();
-		// putting that data into another queue
+// putting that data into another queue
 		resultQueue.push(temp);
 		tempThreshold = max(25, resultQueue.getMax() / 2);
 
@@ -307,7 +315,6 @@ void setupSpectrumShield() {
 	delay(1);
 	digitalWrite(RESET, LOW);
 }
-
 
 void rainbowCycle(uint8_t wait) {
 	uint16_t i, j;
