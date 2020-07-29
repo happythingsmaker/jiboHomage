@@ -1,5 +1,7 @@
 # jiboHomage
-# Instruction https://eunchan.me/DIY-JIBO-b279187154374b5b81ec72977e4be2df
+# Instruction 
+
+https://eunchan.me/DIY-JIBO-b279187154374b5b81ec72977e4be2df
 ![](JiboHomage.jpg)
 
 Dear Jibo,
